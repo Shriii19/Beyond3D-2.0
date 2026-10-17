@@ -4,13 +4,11 @@ A responsive React/Vite portfolio starter inspired by the immersive storytelling
 
 ## Features
 
-- Procedural 3D particle torus, orbital linework, subtle wireframe core, and ambient particles using Three.js + React Three Fiber.
-- Pointer-responsive scene with motion kept behind the content.
-- Full-screen animated navigation with keyboard Escape support.
-- Scroll progress indicator, GSAP ScrollTrigger heading reveals, Framer Motion entrances, and a moving ticker.
-- Four original CSS project-art panels; swap their content in `src/data/projects.js`.
-- Responsive layouts for large desktop, tablet, and mobile.
-- Reduced-motion support and a CSS fallback for the scene.
+- One persistent full-screen WebGL scene (Three.js + React Three Fiber + custom GLSL): 15k particles morph between a torus, a wave field, a ringed planet, a double helix and a spiral galaxy as you move through the sections, with simplex-noise flow, mouse repulsion, warp-speed star streaks, bloom and chromatic aberration.
+- Scroll-driven slide and zoom transitions instead of plain scrolling: the hero headline zooms past the camera as it dives through the torus, work slides horizontally as a 3D cover-flow, About opens like an expanding portal, Capabilities and Contact slide over the pinned previous section while it sinks back, and Contact zooms in from beyond the screen.
+- Lenis smooth scrolling synced with GSAP ScrollTrigger; SplitText character and word reveals; velocity-based skew.
+- Preloader counter, custom cursor with labels, magnetic buttons, tilt + glare on project cards, section HUD, hide-on-scroll header.
+- Responsive layouts and a static fallback for `prefers-reduced-motion`.
 
 ## Run locally
 
@@ -32,7 +30,9 @@ npm run preview
 
 - Main content and sections: `src/App.jsx`
 - Project entries: `src/data/projects.js`
-- Procedural Three.js scene: `src/components/ParticleScene.jsx`
+- 3D scene, particle shapes and shaders: `src/components/Experience.jsx`
+- Scroll choreography: `src/lib/scrollAnimations.js`
+- Cursor, magnetic and tilt interactions: `src/lib/interactions.js`
 - Project artwork and card markup: `src/components/ProjectCard.jsx`
 - Visual styling and responsive breakpoints: `src/styles.css`
 - Theme tokens and Tailwind configuration: `tailwind.config.js`
