@@ -1,5 +1,4 @@
 import { ArrowUpRight } from 'lucide-react';
-import { motion } from 'framer-motion';
 
 function Artwork({ theme }) {
   if (theme === 'pictune') {
@@ -43,18 +42,14 @@ function Artwork({ theme }) {
   );
 }
 
-export default function ProjectCard({ project, index }) {
+export default function ProjectCard({ project }) {
   return (
-    <motion.article
-      className={`project-card project-${project.theme}`}
-      initial={{ opacity: 0, y: 38 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.14 }}
-      transition={{ duration: 0.7, delay: (index % 2) * 0.09, ease: [0.22, 1, 0.36, 1] }}
-    >
-      <a className="project-link" href="#contact" aria-label={`Discuss a project like ${project.title}`}>
+    <article className={`project-card project-${project.theme}`}>
+      <a className="project-link" href="#contact" data-cursor="VIEW" aria-label={`Discuss a project like ${project.title}`}>
         <div className="project-visual">
           <Artwork theme={project.theme} />
+          <span className="project-glare" aria-hidden="true" />
+          <span className="project-number" aria-hidden="true">{project.number}</span>
           <span className="project-open"><ArrowUpRight size={20} strokeWidth={1.5} /></span>
         </div>
         <div className="project-meta">
@@ -66,6 +61,6 @@ export default function ProjectCard({ project, index }) {
         </div>
         <p className="project-description">{project.description}</p>
       </a>
-    </motion.article>
+    </article>
   );
 }
