@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Bloom, ChromaticAberration, EffectComposer, Vignette } from '@react-three/postprocessing';
+import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { getLenis, motionState, prefersReducedMotion } from '../lib/motionState.js';
 import { simplexNoise } from '../lib/noise.js';
@@ -177,7 +177,8 @@ const particleVertex = /* glsl */ `
     float swirl = sin(t * 3.14159265);
     float vel = min(abs(uVelocity), 60.0);
     vec3 q = pos * 0.32 + vec3(0.0, 0.0, uTime * 0.12);
-    vec3 n = vec3(snoise(q), snoise(q + vec3(17.3, 3.1, 9.7)), snoise(q - vec3(8.2, 11.4, 5.5)));
+    vec3 n = vec3(snoise(q), snoise(q + vec3(17.3, 3.1, 9.7)), 0.0);
+    n.z = n.x * n.y;
     pos += n * (0.05 + swirl * 1.8 + vel * 0.012);
 
     vec4 world = modelMatrix * vec4(pos, 1.0);
@@ -436,24 +437,16 @@ function CameraRig() {
 
 function Effects() {
   const bloom = useRef();
-  const aberration = useRef();
-  const offset = useMemo(() => new THREE.Vector2(0.0005, 0.0005), []);
 
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05);
-    const velocity = Math.min(Math.abs(getLenis()?.velocity ?? 0), 80);
     const dive = motionState.dive * (1 - clamp(motionState.morph, 0, 1));
-    if (aberration.current) {
-      const amount = damp(aberration.current.offset.x, 0.0004 + velocity * 0.00006 + dive * 0.004, 5, dt);
-      aberration.current.offset.set(amount, amount * 0.6);
-    }
     if (bloom.current) bloom.current.intensity = damp(bloom.current.intensity, 1.05 + dive * 0.9, 4, dt);
   });
 
   return (
     <EffectComposer multisampling={0} disableNormalPass>
-      <Bloom ref={bloom} mipmapBlur intensity={1.05} luminanceThreshold={0.04} luminanceSmoothing={0.35} radius={0.72} />
-      <ChromaticAberration ref={aberration} offset={offset} radialModulation modulationOffset={0.2} />
+      <Bloom ref={bloom} intensity={1.05} luminanceThreshold={0.04} luminanceSmoothing={0.35} radius={0.6} levels={4} />
       <Vignette offset={0.28} darkness={0.78} />
     </EffectComposer>
   );
@@ -464,15 +457,15 @@ export default function Experience() {
   return (
     <div className="webgl-stage" aria-hidden="true">
       <Canvas
-        dpr={[1, 1.5]}
+        dpr={[1, 1.25]}
         camera={{ position: [0, 0, 8.6], fov: 45, near: 0.05, far: 80 }}
         gl={{ antialias: false, alpha: false, powerPreference: 'high-performance' }}
         fallback={<div className="scene-fallback" />}
       >
         <color attach="background" args={['#07090d']} />
         <CameraRig />
-        <MorphParticles count={narrow ? 7000 : 15000} />
-        <WarpStars count={narrow ? 700 : 1600} />
+        <MorphParticles count={narrow ? 4000 : 8000} />
+        <WarpStars count={narrow ? 400 : 900} />
         <Effects />
       </Canvas>
     </div>
