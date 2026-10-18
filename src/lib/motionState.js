@@ -6,7 +6,9 @@ export const motionState = {
   dive: 0, // hero zoom-through, 0 → 1
   rail: 0, // horizontal work rail, 0 → 1
   morph: 4, // galaxy form stays as the permanent background
-  planet: 0, // which planet variant to show while morph is on the planet form
+  planet: -1, // solid planet to show (-1 none); the particle galaxy always stays behind
+  dragX: 0,
+  dragY: 0,
 };
 
 let lenisInstance = null;

@@ -32,12 +32,12 @@ body::before {
   z-index: 80;
   inset: 0;
   pointer-events: none;
-  opacity: .045;
+  opacity: 0;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.83' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.48'/%3E%3C/svg%3E");
 }
 html.lenis, html.lenis body { height: auto; }
 html, body { height: 100%; overflow: hidden; }
-.pager { position: fixed; z-index: 1; inset: 0; overflow: hidden; }
+.pager { position: fixed; z-index: 1; inset: 0; overflow: hidden; user-select: none; }
 .pager-track { display: flex; width: max-content; height: 100%; will-change: transform; }
 .pager-track > section { position: relative; flex: none; width: 100vw; height: 100svh; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
 .pager-track > section::-webkit-scrollbar { display: none; }

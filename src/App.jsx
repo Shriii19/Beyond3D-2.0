@@ -335,8 +335,8 @@ export default function App() {
 
       const railProgress = railMax > 0 ? Math.min(rail * railStep, railMax) / railMax : 0;
       motionState.rail = railProgress;
-      motionState.morph = slide === 0 ? 4 : 2; // galaxy on the hero, a planet once scrolling starts
-      motionState.planet = Math.max(0, slide - 1);
+      motionState.morph = 4;
+      motionState.planet = slide - 1;
       motionState.progress = slides.length > 1 ? slide / (slides.length - 1) : 0;
       if (progressRef.current) progressRef.current.style.transform = `scaleX(${(index + 1) / steps.length})`;
       bar.style.transform = `scaleX(${railProgress})`;
