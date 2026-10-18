@@ -12,6 +12,17 @@ import { simplexNoise } from '../lib/noise.js';
 const { damp, clamp, smoothstep } = THREE.MathUtils;
 const isNarrow = () => window.innerWidth < 768;
 
+// Seeded PRNG so the galaxy is identical on every load.
+function seeded(seed) {
+  let a = seed;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 function buildShapes(count) {
   const torus = new Float32Array(count * 3);
   const wave = new Float32Array(count * 3);
@@ -21,7 +32,7 @@ function buildShapes(count) {
   const random = new Float32Array(count * 4);
   const colors = new Float32Array(count * 3);
   const palette = ['#1f5eff', '#8feaff', '#6674bd', '#4b83ff', '#c7d6ff'].map((c) => new THREE.Color(c));
-  const r = Math.random;
+  const r = seeded(20260);
 
   for (let i = 0; i < count; i += 1) {
     const i3 = i * 3;
@@ -111,6 +122,11 @@ const particleVertex = /* glsl */ `
   uniform vec3 uHelixC;
   uniform float uHelixRot;
   uniform vec3 uGalaxyC;
+  uniform vec3 uPlanetTint;
+  uniform float uPlanetScale;
+  uniform float uRingAmount;
+  uniform float uRingTilt;
+  uniform float uBands;
 
   attribute vec3 aWave;
   attribute vec3 aSphere;
@@ -140,7 +156,12 @@ const particleVertex = /* glsl */ `
            + sin((p.x + p.z) * 0.28 + uTime * 0.3) * 0.3;
       return p;
     }
-    if (i < 2.5) return uSphereC + rotZ(0.28) * rotY(uTime * 0.12) * aSphere;
+    if (i < 2.5) {
+      vec3 s = aSphere;
+      float ring = step(2.5, length(s));
+      s = mix(normalize(s) * 2.05, s, mix(1.0, uRingAmount, ring));
+      return uSphereC + rotZ(uRingTilt) * rotY(uTime * 0.12) * s * uPlanetScale;
+    }
     if (i < 3.5) return uHelixC + rotZ(uHelixRot) * rotX(uTime * 0.35) * aHelix;
     return uGalaxyC + rotX(1.12) * rotY(uTime * 0.07) * aGalaxy;
   }
@@ -171,6 +192,9 @@ const particleVertex = /* glsl */ `
     vAlpha = smoothstep(0.15, 1.4, depth) * (0.5 + aRandom.w * 0.5);
     float core = clamp(m - 3.0, 0.0, 1.0) * smoothstep(2.6, 0.0, length(aGalaxy));
     vColor = aColor * (0.85 + swirl * 0.9 + vel * 0.012) + vec3(0.55, 0.75, 1.0) * core;
+    float pw = clamp(1.0 - abs(m - 2.0), 0.0, 1.0);
+    float band = 1.0 + uBands * 0.45 * sin(aSphere.y * 5.5);
+    vColor *= mix(vec3(1.0), uPlanetTint * band, pw);
   }
 `;
 
@@ -186,6 +210,14 @@ const particleFragment = /* glsl */ `
   }
 `;
 
+// One look per section: work, about, capabilities, contact.
+const PLANETS = [
+  { tint: [1, 1, 1], scale: 1, ring: 1, tilt: 0.28, bands: 0 },
+  { tint: [1.7, 0.7, 0.4], scale: 1.18, ring: 0, tilt: 0.1, bands: 1 },
+  { tint: [0.6, 1.6, 1.0], scale: 0.8, ring: 1, tilt: -0.65, bands: 0.4 },
+  { tint: [1.4, 0.75, 1.7], scale: 1.3, ring: 1, tilt: 0.95, bands: 0.8 },
+];
+
 function MorphParticles({ count }) {
   const material = useRef();
   const { camera, size, viewport } = useThree();
@@ -198,7 +230,7 @@ function MorphParticles({ count }) {
   }), []);
   const uniforms = useMemo(() => ({
     uTime: { value: 0 },
-    uMorph: { value: 0 },
+    uMorph: { value: 4 },
     uSize: { value: 30 },
     uVelocity: { value: 0 },
     uRail: { value: 0 },
@@ -209,6 +241,11 @@ function MorphParticles({ count }) {
     uHelixC: { value: new THREE.Vector3() },
     uHelixRot: { value: -0.2 },
     uGalaxyC: { value: new THREE.Vector3(0, -0.3, -2) },
+    uPlanetTint: { value: new THREE.Vector3(1, 1, 1) },
+    uPlanetScale: { value: 1 },
+    uRingAmount: { value: 1 },
+    uRingTilt: { value: 0.28 },
+    uBands: { value: 0 },
     uOpacity: { value: 0 },
   }), []);
 
@@ -232,6 +269,15 @@ function MorphParticles({ count }) {
     u.uSphereC.value.set(wide ? -3.3 : 0, wide ? 0.1 : -1.6, wide ? -1.2 : -2.5);
     u.uHelixC.value.set(0, wide ? 0.3 : 0, -3);
     u.uHelixRot.value = wide ? -0.2 : 1.35;
+
+    const planet = PLANETS[clamp(motionState.planet, 0, PLANETS.length - 1)];
+    u.uPlanetTint.value.x = damp(u.uPlanetTint.value.x, planet.tint[0], 3, dt);
+    u.uPlanetTint.value.y = damp(u.uPlanetTint.value.y, planet.tint[1], 3, dt);
+    u.uPlanetTint.value.z = damp(u.uPlanetTint.value.z, planet.tint[2], 3, dt);
+    u.uPlanetScale.value = damp(u.uPlanetScale.value, planet.scale, 3, dt);
+    u.uRingAmount.value = damp(u.uRingAmount.value, planet.ring, 3, dt);
+    u.uRingTilt.value = damp(u.uRingTilt.value, planet.tilt, 3, dt);
+    u.uBands.value = damp(u.uBands.value, planet.bands, 3, dt);
 
     helpers.ndc.set(motionState.pointer.x, -motionState.pointer.y);
     helpers.raycaster.setFromCamera(helpers.ndc, camera);
@@ -293,10 +339,11 @@ function WarpStars({ count }) {
   const geometry = useMemo(() => {
     const positions = new Float32Array(count * 6);
     const tails = new Float32Array(count * 2);
+    const rand = seeded(7);
     for (let i = 0; i < count; i += 1) {
-      const x = (Math.random() - 0.5) * 30;
-      const y = (Math.random() - 0.5) * 18;
-      const z = Math.random() * 40;
+      const x = (rand() - 0.5) * 30;
+      const y = (rand() - 0.5) * 18;
+      const z = rand() * 40;
       positions.set([x, y, z, x, y, z], i * 6);
       tails[i * 2 + 1] = 1;
     }

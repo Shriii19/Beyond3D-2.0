@@ -310,9 +310,11 @@ main { position: relative; z-index: 1; }
 .custom-cursor { position: fixed; z-index: 210; inset: 0; pointer-events: none; opacity: 0; transition: opacity .4s; }
 .custom-cursor.is-visible { opacity: 1; }
 .cursor-dot, .cursor-ring { position: fixed; top: 0; left: 0; border-radius: 50%; will-change: transform; }
-.cursor-dot { width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; background: var(--ice); box-shadow: 0 0 10px var(--ice); }
-.cursor-ring { display: grid; place-items: center; width: 36px; height: 36px; margin: -18px 0 0 -18px; border: 1px solid rgba(168, 220, 255, .55); transition: width .45s cubic-bezier(.19,1,.22,1), height .45s cubic-bezier(.19,1,.22,1), margin .45s cubic-bezier(.19,1,.22,1), background .35s, border-color .35s; }
-.custom-cursor.is-hover .cursor-ring { width: 58px; height: 58px; margin: -29px 0 0 -29px; border-color: var(--ice); background: rgba(155, 222, 255, .08); }
+.cursor-dot { width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 0; filter: drop-shadow(0 0 6px var(--ice)); }
+.cursor-dot::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, #fff, var(--ice)); clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); animation: starSpin 6s linear infinite; }
+@keyframes starSpin { to { transform: rotate(360deg); } }
+.cursor-ring { display: grid; place-items: center; width: 36px; height: 36px; margin: -18px 0 0 -18px; border: 1px solid transparent; transition: width .45s cubic-bezier(.19,1,.22,1), height .45s cubic-bezier(.19,1,.22,1), margin .45s cubic-bezier(.19,1,.22,1), background .35s, border-color .35s; }
+.custom-cursor.is-hover .cursor-ring { width: 58px; height: 58px; margin: -29px 0 0 -29px; border-color: rgba(168, 220, 255, .55); background: rgba(155, 222, 255, .08); }
 .custom-cursor.has-label .cursor-ring { width: 86px; height: 86px; margin: -43px 0 0 -43px; border-color: transparent; background: var(--ice); }
 .custom-cursor.is-down .cursor-ring { width: 26px; height: 26px; margin: -13px 0 0 -13px; }
 .cursor-label { color: #05080e; font-family: var(--mono); font-size: 9px; font-weight: 500; letter-spacing: .14em; opacity: 0; transition: opacity .3s; }
