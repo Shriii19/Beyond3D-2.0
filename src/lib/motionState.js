@@ -5,7 +5,8 @@ export const motionState = {
   progress: 0, // whole page, 0 → 1
   dive: 0, // hero zoom-through, 0 → 1
   rail: 0, // horizontal work rail, 0 → 1
-  morph: 0, // section blend: 0 hero, 1 work, 2 about, 3 capabilities, 4 contact
+  morph: 4, // galaxy form stays as the permanent background
+  planet: 0, // which planet variant to show while morph is on the planet form
 };
 
 let lenisInstance = null;
