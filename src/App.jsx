@@ -344,6 +344,10 @@ export default function App() {
       hudLinks.forEach((link, i) => link.classList.toggle('is-active', i === slide));
       header.classList.toggle('is-scrolled', slide > 0);
       if (slide !== shown) {
+        if (shown >= 0) {
+          const left = slides[shown];
+          window.setTimeout(() => { left.scrollTop = 0; }, 1200);
+        }
         shown = slide;
         if (slide > 0) animateSlideIn(slides[slide]);
       }
@@ -373,7 +377,7 @@ export default function App() {
     // Let tall slides scroll vertically first, then page sideways at their edge.
     const canScrollInside = (dir) => {
       const el = slides[steps[index].slide];
-      if (el.scrollHeight <= el.clientHeight + 2) return false;
+      if (getComputedStyle(el).overflowY !== 'auto' || el.scrollHeight <= el.clientHeight + 2) return false;
       return dir > 0 ? el.scrollTop + el.clientHeight < el.scrollHeight - 2 : el.scrollTop > 2;
     };
 

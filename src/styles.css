@@ -41,6 +41,30 @@ html, body { height: 100%; overflow: hidden; }
 .pager-track { display: flex; width: max-content; height: 100%; will-change: transform; }
 .pager-track > section { position: relative; flex: none; width: 100vw; height: 100svh; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
 .pager-track > section::-webkit-scrollbar { display: none; }
+.pager-track > .hero, .pager-track > .contact-section { overflow: hidden; }
+.hero-side-right { display: none; }
+.pager-track > .hero { min-height: 0; }
+.pager-track > section { display: flex; flex-direction: column; justify-content: safe center; }
+.pager-track .stack-inner { display: flex; flex: 1; flex-direction: column; justify-content: safe center; }
+.pager-track .about-panel { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+.pager-track .about-orbit span { display: none; }
+.pager-track .capability-row p { line-height: 1.5; }
+.pager-track .capabilities-section .section-heading h2 { font-size: min(7vw, 9svh, 91px); }
+.pager-track .capabilities-section .stack-inner { padding-top: clamp(70px, 9svh, 110px); padding-bottom: 24px; }
+.pager-track .capability-row { padding: clamp(8px, 1.6svh, 24px) 0; }
+.pager-track .capability-row h3 { margin-bottom: 4px; }
+.pager-track .capabilities-intro { line-height: 1.7; }
+.pager-track .section-pad { padding: clamp(84px, 11svh, 140px) 0 clamp(40px, 6svh, 80px); }
+.pager-track .about-panel { padding: clamp(84px, 11svh, 140px) 0 clamp(40px, 6svh, 80px); }
+.pager-track .capabilities-layout { margin-top: clamp(24px, 5svh, 56px); }
+.pager-track .capability-row { padding: clamp(12px, 2.4svh, 24px) 0; }
+.pager-track .contact-section { padding-bottom: 90px; }
+.pager-track .contact-content h2 { margin: clamp(14px, 3svh, 32px) 0 clamp(8px, 2svh, 19px); font-size: min(10vw, 17svh, 130px); }
+.pager-track .contact-content > p, .pager-track .contact-after > p { margin: clamp(12px, 3svh, 27px) auto clamp(16px, 4svh, 39px); }
+.pager-track .section-heading h2 { font-size: min(7vw, 11svh, 91px); }
+.pager-track .heading-top { margin-bottom: clamp(12px, 3svh, 32px); }
+.pager-track .contact-meta { margin-top: clamp(32px, 8svh, 100px); }
+.pager-track .about-stats { padding-top: clamp(24px, 6svh, 95px); }
 .lenis.lenis-smooth { scroll-behavior: auto !important; }
 .lenis.lenis-stopped { overflow: clip; }
 a { color: inherit; text-decoration: none; }
