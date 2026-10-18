@@ -2,16 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, Menu, X } from 'lucide-react';
 import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import Lenis from 'lenis';
 import Experience from './components/Experience.jsx';
 import ProjectCard from './components/ProjectCard.jsx';
 import { projects } from './data/projects.js';
-import { getLenis, motionState, prefersReducedMotion, setLenis } from './lib/motionState.js';
-import { initScrollAnimations } from './lib/scrollAnimations.js';
+import { motionState } from './lib/motionState.js';
+import { animateSlideIn, heroIntro } from './lib/pager.js';
 import { initInteractions } from './lib/interactions.js';
-
-gsap.registerPlugin(ScrollTrigger);
 
 const menuItems = [
   { number: '01', label: 'WORK', href: '#work' },
@@ -271,6 +267,7 @@ function ContactSection() {
           <div className="contact-meta"><span>BASED IN INDIA <i /> WORKING EVERYWHERE</span><a href="https://www.linkedin.com/" target="_blank" rel="noreferrer">LINKEDIN <ArrowUpRight size={12} /></a><a href="https://github.com/" target="_blank" rel="noreferrer">GITHUB <ArrowUpRight size={12} /></a></div>
         </div>
       </div>
+      <Footer />
     </section>
   );
 }
@@ -293,78 +290,160 @@ export default function App() {
   const progressRef = useRef(null);
   const revealRef = useRef(() => setLoaded(true));
 
-  // Smooth scrolling, scroll-driven state for the 3D scene, header + HUD updates.
+  const enabledRef = useRef(false);
+  enabledRef.current = loaded && !menuOpen;
+
+  // Horizontal pager: each wheel notch slides one step left to right, and the last slide loops back to the hero.
   useEffect(() => {
-    if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual';
-    window.scrollTo(0, 0);
-
-    let lenis = null;
-    const raf = (time) => lenis.raf(time * 1000);
-    if (!prefersReducedMotion()) {
-      lenis = new Lenis({ lerp: 0.085, wheelMultiplier: 0.95 });
-      lenis.stop();
-      lenis.on('scroll', ScrollTrigger.update);
-      gsap.ticker.add(raf);
-      gsap.ticker.lagSmoothing(0);
-      setLenis(lenis);
-    }
-
     const root = appRef.current;
+    const track = root.querySelector('.pager-track');
+    const slides = [...track.children];
+    const workTrack = root.querySelector('.work-track');
+    const workIndex = slides.findIndex((slide) => slide.id === 'work');
     const header = root.querySelector('.site-header');
     const hudLinks = [...root.querySelectorAll('.section-hud a')];
-    let lastY = 0;
-    let active = -1;
+    const counter = root.querySelector('.rail-count b');
+    const bar = root.querySelector('.rail-bar i');
+    const cardCount = root.querySelectorAll('.project-card').length;
 
-    const onScroll = () => {
-      const vh = window.innerHeight;
-      const y = window.scrollY;
-      const max = document.documentElement.scrollHeight - vh;
-      motionState.progress = max > 0 ? y / max : 0;
-      if (progressRef.current) progressRef.current.style.transform = `scaleX(${motionState.progress})`;
+    let steps = [];
+    let railStep = 0;
+    let railMax = 0;
+    let index = 0;
+    let busy = false;
+    let shown = -1;
 
-      let morph = 0;
-      for (let i = 1; i < hudItems.length; i += 1) {
-        const section = root.querySelector(hudItems[i].href);
-        if (section) morph += gsap.utils.clamp(0, 1, (vh - section.getBoundingClientRect().top) / (vh * 0.9));
-      }
-      motionState.morph = morph;
-
-      const current = Math.min(hudItems.length - 1, Math.round(morph));
-      if (current !== active) {
-        active = current;
-        hudLinks.forEach((link, i) => link.classList.toggle('is-active', i === current));
-      }
-      header.classList.toggle('is-hidden', y > lastY && y > 160);
-      header.classList.toggle('is-scrolled', y > 40);
-      lastY = y;
+    const buildSteps = () => {
+      railMax = Math.max(0, workTrack.scrollWidth - window.innerWidth);
+      const card = workTrack.children[0];
+      railStep = card ? card.offsetWidth + parseFloat(getComputedStyle(workTrack).columnGap || 0) : window.innerWidth;
+      const railCount = railMax > 0 ? Math.ceil(railMax / railStep) : 0;
+      steps = [];
+      slides.forEach((_, s) => {
+        steps.push({ slide: s, rail: 0 });
+        if (s === workIndex) for (let r = 1; r <= railCount; r += 1) steps.push({ slide: s, rail: r });
+      });
     };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    onScroll();
 
-    // In-page links glide with Lenis instead of jumping.
+    const apply = (animate) => {
+      const { slide, rail } = steps[index];
+      const dur = animate ? 1.1 : 0;
+      const ease = 'power3.inOut';
+      gsap.to(track, { x: -slide * window.innerWidth, duration: dur, ease, overwrite: 'auto' });
+      const railX = -Math.min(rail * railStep, railMax);
+      gsap.to(workTrack, { x: railX, duration: dur, ease, overwrite: 'auto' });
+
+      const railProgress = railMax > 0 ? Math.min(rail * railStep, railMax) / railMax : 0;
+      motionState.rail = railProgress;
+      motionState.morph = slide;
+      motionState.dive = slide > 0 ? 1 : 0;
+      motionState.progress = slides.length > 1 ? slide / (slides.length - 1) : 0;
+      if (progressRef.current) progressRef.current.style.transform = `scaleX(${(index + 1) / steps.length})`;
+      bar.style.transform = `scaleX(${railProgress})`;
+      counter.textContent = String(Math.min(cardCount, Math.round(railProgress * (cardCount - 1)) + 1)).padStart(2, '0');
+      hudLinks.forEach((link, i) => link.classList.toggle('is-active', i === slide));
+      header.classList.toggle('is-scrolled', slide > 0);
+      if (slide !== shown) {
+        shown = slide;
+        if (slide > 0) animateSlideIn(slides[slide]);
+      }
+    };
+
+    const go = (target) => {
+      if (busy || !enabledRef.current) return;
+      const next = ((target % steps.length) + steps.length) % steps.length;
+      if (next === index) return;
+      const wrapping = Math.abs(next - index) > 1;
+      index = next;
+      busy = true;
+      apply(true);
+      window.setTimeout(() => { busy = false; }, wrapping ? 1300 : 900);
+    };
+
+    const goToSlide = (slide) => {
+      if (busy) return;
+      const target = steps.findIndex((step) => step.slide === slide && step.rail === 0);
+      if (target < 0 || target === index) return;
+      index = target;
+      busy = true;
+      apply(true);
+      window.setTimeout(() => { busy = false; }, 1300);
+    };
+
+    // Let tall slides scroll vertically first, then page sideways at their edge.
+    const canScrollInside = (dir) => {
+      const el = slides[steps[index].slide];
+      if (el.scrollHeight <= el.clientHeight + 2) return false;
+      return dir > 0 ? el.scrollTop + el.clientHeight < el.scrollHeight - 2 : el.scrollTop > 2;
+    };
+
+    let wheelAcc = 0;
+    let wheelTimer = 0;
+    const onWheel = (event) => {
+      event.preventDefault();
+      if (!enabledRef.current) return;
+      const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
+      const dir = Math.sign(delta);
+      if (!dir) return;
+      if (event.deltaY && canScrollInside(dir)) {
+        const el = slides[steps[index].slide];
+        el.scrollTop += event.deltaY;
+        return;
+      }
+      wheelAcc += delta;
+      window.clearTimeout(wheelTimer);
+      wheelTimer = window.setTimeout(() => { wheelAcc = 0; }, 160);
+      if (Math.abs(wheelAcc) > 12) {
+        wheelAcc = 0;
+        go(index + dir);
+      }
+    };
+
+    const onKey = (event) => {
+      if (['ArrowDown', 'ArrowRight', 'PageDown'].includes(event.key)) go(index + 1);
+      if (['ArrowUp', 'ArrowLeft', 'PageUp'].includes(event.key)) go(index - 1);
+    };
+
+    let touchX = 0;
+    let touchY = 0;
+    const onTouchStart = (event) => { touchX = event.touches[0].clientX; touchY = event.touches[0].clientY; };
+    const onTouchEnd = (event) => {
+      const dx = touchX - event.changedTouches[0].clientX;
+      const dy = touchY - event.changedTouches[0].clientY;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) go(index + Math.sign(dx));
+    };
+
     const onClick = (event) => {
       const link = event.target.closest('a[href^="#"]');
       if (!link) return;
-      const hash = link.getAttribute('href');
-      const target = hash === '#top' ? 0 : document.querySelector(hash);
-      if (target === null) return;
       event.preventDefault();
-      if (lenis) lenis.scrollTo(target, { duration: 2, force: true, easing: (t) => 1 - Math.pow(1 - t, 4) });
-      else if (target === 0) window.scrollTo(0, 0);
-      else target.scrollIntoView();
+      const hash = link.getAttribute('href');
+      const slide = hash === '#top' ? 0 : slides.findIndex((s) => `#${s.id}` === hash);
+      if (slide >= 0) goToSlide(slide);
     };
-    document.addEventListener('click', onClick);
 
+    const onResize = () => {
+      buildSteps();
+      index = Math.min(index, steps.length - 1);
+      apply(false);
+    };
+
+    buildSteps();
+    apply(false);
+    window.addEventListener('wheel', onWheel, { passive: false });
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
+    window.addEventListener('resize', onResize);
+    document.addEventListener('click', onClick);
     return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
+      window.clearTimeout(wheelTimer);
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('resize', onResize);
       document.removeEventListener('click', onClick);
-      if (lenis) {
-        gsap.ticker.remove(raf);
-        lenis.destroy();
-        setLenis(null);
-      }
     };
   }, []);
 
@@ -372,22 +451,15 @@ export default function App() {
 
   useEffect(() => {
     if (!loaded) return undefined;
-    getLenis()?.start();
-    return initScrollAnimations(appRef.current);
+    const ctx = gsap.context(heroIntro, appRef.current);
+    return () => ctx.revert();
   }, [loaded]);
 
   useEffect(() => {
-    const lenis = getLenis();
-    if (menuOpen) lenis?.stop();
-    else if (loaded) lenis?.start();
-    document.body.style.overflow = menuOpen ? 'hidden' : '';
     const onKeyDown = (event) => { if (event.key === 'Escape') setMenuOpen(false); };
     window.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.body.style.overflow = '';
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [menuOpen, loaded]);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   return (
     <div className="site-root" ref={appRef}>
@@ -405,15 +477,15 @@ export default function App() {
         ))}
       </nav>
       <MenuOverlay open={menuOpen} onClose={() => setMenuOpen(false)} />
-      <main>
-        <Hero />
-        <div className="ticker" aria-label="Design, technology, experience"><div className="ticker-track">{Array.from({ length: 4 }).map((_, index) => <span key={index}>DESIGN <i>✳</i> TECHNOLOGY <i>✳</i> EXPERIENCE <i>✳</i> CURIOSITY <i>✳</i></span>)}</div></div>
-        <WorkSection />
-        <AboutSection />
-        <CapabilitiesSection />
-        <ContactSection />
+      <main className="pager">
+        <div className="pager-track">
+          <Hero />
+          <WorkSection />
+          <AboutSection />
+          <CapabilitiesSection />
+          <ContactSection />
+        </div>
       </main>
-      <Footer />
     </div>
   );
 }
