@@ -305,7 +305,7 @@ function ShootingStars({ count = 3 }) {
     const dt = Math.min(delta, 0.05);
     const pos = geometry.attributes.position;
     const alpha = geometry.attributes.aAlpha;
-    const rate = motionState.planet < 0 ? 1 : 0.35;
+    const rate = motionState.slide === 0 ? 1 : 0.35;
     meteors.forEach((m, i) => {
       if (m.wait > 0) {
         m.wait -= dt * rate;
@@ -381,7 +381,7 @@ export default function Galaxy({ count, nebulaCount }) {
   useEffect(() => {
     const d = drag.current;
     const onDown = (e) => {
-      if (e.target.closest('a, button, .project-card, .capability-row, .menu-overlay')) return;
+      if (e.target.closest('a, button, .planet-info, .contact-content, .menu-overlay')) return;
       d.down = true; d.lastX = e.clientX; d.lastY = e.clientY;
     };
     const onMove = (e) => {
@@ -415,7 +415,7 @@ export default function Galaxy({ count, nebulaCount }) {
     motionState.dragX = d.x;
     motionState.dragY = d.y;
 
-    const hero = motionState.planet < 0;
+    const hero = motionState.slide === 0;
     const wide = size.width / size.height > 1;
     shared.uTime.value += dt * (prefersReducedMotion() ? 0.25 : 1);
     shared.uIntro.value = motionState.intro;
