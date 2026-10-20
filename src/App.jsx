@@ -1,26 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowDown, ArrowDownRight, ArrowRight, ArrowUpRight, Menu, X } from 'lucide-react';
+import { ArrowDown, ArrowDownRight, ArrowUpRight, Menu, X } from 'lucide-react';
 import gsap from 'gsap';
 import Experience from './components/Experience.jsx';
-import ProjectCard from './components/ProjectCard.jsx';
-import { projects } from './data/projects.js';
+import { bodies } from './data/planets.js';
 import { motionState } from './lib/motionState.js';
-import { animateSlideIn, heroIntro } from './lib/pager.js';
+import { animateSlideIn, heroIntro, lightJump } from './lib/pager.js';
 import { initInteractions } from './lib/interactions.js';
 
 const menuItems = [
-  { number: '01', label: 'WORK', href: '#work' },
-  { number: '02', label: 'ABOUT', href: '#about' },
-  { number: '03', label: 'CAPABILITIES', href: '#capabilities' },
-  { number: '04', label: 'CONTACT', href: '#contact' },
+  { number: '01', label: 'THE SUN', href: '#sun' },
+  { number: '02', label: 'INNER WORLDS', href: '#mercury' },
+  { number: '03', label: 'GAS GIANTS', href: '#jupiter' },
+  { number: '04', label: 'ICE GIANTS', href: '#uranus' },
+  { number: '05', label: 'CONTACT', href: '#contact' },
 ];
 
 const hudItems = [
   { label: 'INTRO', href: '#top' },
-  { label: 'WORK', href: '#work' },
-  { label: 'ABOUT', href: '#about' },
-  { label: 'CAPABILITIES', href: '#capabilities' },
+  ...bodies.map((body) => ({ label: body.name, href: `#${body.id}` })),
   { label: 'CONTACT', href: '#contact' },
 ];
 
@@ -130,17 +128,26 @@ function Hero() {
     <section id="top" className="hero">
       <div className="hero-grid" />
       <div className="hero-glow" />
+      <div className="hero-orbits" aria-hidden="true">
+        <div className="orbit orbit-a"><i /></div>
+        <div className="orbit orbit-b"><i /></div>
+        <div className="orbit orbit-c"><i /></div>
+      </div>
       <div className="hero-center">
         <div className="hero-kicker-wrap">
-          <p className="hero-kicker"><span className="kicker-line" /> INDEPENDENT DIGITAL CRAFT / 2026 <span className="kicker-line" /></p>
+          <p className="hero-kicker">
+            <span className="kicker-line" />
+            <span className="kicker-text" data-phrases="INDEPENDENT DIGITAL CRAFT / 2026|CREATIVE DEVELOPER / WEBGL|FULL-STACK PRODUCTS / AI|MOTION / CODE / FEELING">INDEPENDENT DIGITAL CRAFT / 2026</span>
+            <span className="kicker-line" />
+          </p>
         </div>
         <div className="hero-title-wrap">
           <h1>MADE OF<br /><em>CODE &amp; FEELING.</em></h1>
         </div>
         <div className="hero-copy">
           <p className="hero-description">I build digital experiences where thoughtful engineering meets a little bit of wonder.</p>
-          <a href="#work" className="outline-link hero-cta magnetic">
-            <span>EXPLORE SELECTED WORK</span><ArrowDownRight size={16} strokeWidth={1.5} />
+          <a href="#sun" className="outline-link hero-cta magnetic">
+            <span>BEGIN THE JOURNEY</span><ArrowDownRight size={16} strokeWidth={1.5} />
           </a>
         </div>
       </div>
@@ -148,109 +155,69 @@ function Hero() {
         <span className="hero-side hero-side-left">DESIGN / TECHNOLOGY / EXPERIENCE</span>
         <span className="hero-side hero-side-right">19°59' N — 73°47' E</span>
       </div>
+      <div className="hero-telemetry hero-telemetry-left" aria-hidden="true">
+        <span>SECTOR <b>NGC-2026</b></span>
+        <span>STARS <b data-stars>0</b></span>
+        <span>RA <b data-ra>05h 35m 17s</b></span>
+      </div>
+      <div className="hero-telemetry hero-telemetry-right" aria-hidden="true">
+        <span>ROTATION <b>0.045 RAD/S</b></span>
+        <span className="drag-hint"><i /> DRAG TO SPIN THE GALAXY</span>
+      </div>
       <div className="hero-bottom">
-        <span>SCROLL TO DIVE IN</span>
+        <span>SCROLL TO TRAVEL</span>
         <span className="scroll-indicator"><span className="scroll-mouse"><i /></span><ArrowDown size={13} /></span>
-        <span className="hero-index">01 <i /> 05</span>
+        <span className="hero-index">00 <i /> {String(bodies.length + 1).padStart(2, '0')}</span>
       </div>
     </section>
   );
 }
 
-function SectionHeading({ overline, title, secondLine, sideText }) {
+const pad = (n) => String(n).padStart(2, '0');
+const formatStat = (stat) => stat.num.toLocaleString('en-US', { minimumFractionDigits: stat.decimals ?? 0, maximumFractionDigits: stat.decimals ?? 0 });
+// Log scale so the inner planets don't bunch up against the Sun.
+const travelPosition = (au) => (Math.log10(1 + au * 3) / Math.log10(1 + 30.05 * 3)) * 100;
+
+function PlanetSection({ body, index }) {
   return (
-    <div className="section-heading">
-      <div className="heading-top reveal-up"><span className="eyebrow">{overline}</span><span className="heading-side">{sideText}</span></div>
-      <h2 data-split>{title}{secondLine && <><br /><em>{secondLine}</em></>}</h2>
+    <section id={body.id} className={`planet-slide planet-${body.id}`}>
+      <span className="planet-ghost" aria-hidden="true">{pad(index)}</span>
+      <div className="planet-info">
+        <div className="planet-top">
+          <span className="planet-index"><b>{pad(index)}</b> / {pad(bodies.length - 1)}</span>
+          <span className="eyebrow">{body.kind}</span>
+        </div>
+        <h2 className="planet-name">{body.name}</h2>
+        <p className="planet-tagline">{body.tagline}</p>
+        <p className="planet-desc">{body.description}</p>
+        <dl className="planet-stats">
+          {body.stats.map((stat) => (
+            <div key={stat.label}>
+              <dt>{stat.label}</dt>
+              <dd><span data-num={stat.num} data-decimals={stat.decimals ?? 0}>{formatStat(stat)}</span>{stat.unit && <small>{stat.unit}</small>}</dd>
+            </div>
+          ))}
+        </dl>
+        <p className="planet-fact"><i /> {body.fact}</p>
+      </div>
+      <div className="planet-callouts" aria-hidden="true">
+        <span className="callout callout-a"><i />{body.au ? `${body.au} AU · ${body.distance} FROM THE SUN` : 'THE CENTRE OF IT ALL'}</span>
+        <span className="callout callout-b"><i />DRAG TO ROTATE</span>
+      </div>
+    </section>
+  );
+}
+
+function TravelBar() {
+  return (
+    <div className="travel-bar" aria-hidden="true">
+      <span className="travel-label">DISTANCE FROM THE SUN</span>
+      <div className="travel-track">
+        {bodies.map((body) => <i key={body.id} style={{ left: `${travelPosition(body.au)}%` }}><span>{body.name}</span></i>)}
+        <b className="travel-ship" />
+      </div>
+      <span className="travel-value">THE CENTRE</span>
     </div>
-  );
-}
-
-function WorkSection() {
-  return (
-    <section id="work" className="work-section">
-      <div className="container work-head">
-        <SectionHeading overline="01 / SELECTED WORK" title="A FEW WORLDS" secondLine="I HELPED BRING TO LIFE." sideText="A SELECTION / 2025—26" />
-        <div className="work-intro-row reveal-up">
-          <p>Digital products, experimental interfaces, and web experiences — each shaped around a clear idea and a feeling worth remembering.</p>
-          <a className="text-link" href="#contact">HAVE A PROJECT IN MIND? <ArrowUpRight size={15} /></a>
-        </div>
-      </div>
-      <div className="work-rail">
-        <div className="work-track">
-          {projects.map((project) => <ProjectCard key={project.number} project={project} />)}
-          <div className="work-end-card">
-            <span className="eyebrow">END OF SELECTED WORK</span>
-            <h3>MORE WORLDS<br /><em>IN PROGRESS.</em></h3>
-            <a className="outline-link magnetic" href="#contact"><span>START A PROJECT</span><ArrowRight size={16} strokeWidth={1.5} /></a>
-          </div>
-        </div>
-        <div className="container rail-footer">
-          <span className="rail-count"><b>01</b> / {String(projects.length).padStart(2, '0')}</span>
-          <span className="rail-bar"><i /></span>
-          <span className="rail-hint">KEEP SCROLLING <ArrowRight size={12} /></span>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function AboutSection() {
-  const words = ['Curiosity', 'Clarity', 'Craft', 'Care'];
-  return (
-    <section id="about" className="about-section stack-section">
-      <div className="stack-inner">
-        <div className="about-panel">
-          <div className="about-orbit" aria-hidden="true"><div /><div /><div /><span>S / 26</span></div>
-          <div className="container about-layout">
-            <div className="about-left">
-              <span className="eyebrow reveal-up">02 / A LITTLE ABOUT ME</span>
-              <p className="about-aside reveal-up">A developer with a designer’s eye and an engineer’s curiosity.</p>
-              <div className="about-stats">
-                <div><strong data-count="4">04<span>+</span></strong><small>YEARS OF CURIOSITY</small></div>
-                <div><strong>∞</strong><small>THINGS LEFT TO MAKE</small></div>
-              </div>
-            </div>
-            <div className="about-right">
-              <h2>THE BEST DIGITAL WORK DOESN’T JUST <em>LOOK GOOD.</em> IT MAKES YOU <em>FEEL SOMETHING.</em></h2>
-              <p className="reveal-up">I’m Shree — a developer working across full-stack products, interactive websites, and applied AI. I like the space where technology fades into the background and the experience takes over.</p>
-              <p className="reveal-up">My process is equal parts experimentation and intent: understand the problem, find the interesting angle, then build it with care down to the smallest interaction.</p>
-              <div className="values-list">{words.map((word, i) => <span key={word}><small>0{i + 1}</small>{word}</span>)}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function CapabilitiesSection() {
-  const capabilities = [
-    { no: '01', title: 'Digital experiences', detail: 'Immersive websites, expressive interfaces, scroll-led storytelling, and memorable moments.' },
-    { no: '02', title: 'Product engineering', detail: 'Full-stack applications, thoughtful systems, clean APIs, and interfaces people enjoy using.' },
-    { no: '03', title: 'AI / data interfaces', detail: 'Practical machine learning, visual analytics, and complex information made approachable.' },
-    { no: '04', title: 'Creative development', detail: 'WebGL, motion design, real-time visuals, and experiments that make the browser feel alive.' },
-  ];
-  return (
-    <section id="capabilities" className="capabilities-section stack-section">
-      <div className="stack-inner section-pad">
-        <div className="container">
-          <SectionHeading overline="03 / CAPABILITIES" title="FROM FIRST SKETCH" secondLine="TO FINAL PIXEL." sideText="THINK / DESIGN / BUILD" />
-          <div className="capabilities-layout">
-            <p className="capabilities-intro reveal-up">A small, connected toolkit for turning ambitious ideas into useful, expressive digital things.</p>
-            <div className="capability-list">
-              {capabilities.map((item) => (
-                <a className="capability-row" href="#contact" key={item.no}>
-                  <span className="capability-no">{item.no}</span>
-                  <div><h3>{item.title}</h3><p>{item.detail}</p></div>
-                  <ArrowUpRight className="capability-arrow" size={20} strokeWidth={1.4} />
-                </a>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
   );
 }
 
@@ -259,7 +226,7 @@ function ContactSection() {
     <section id="contact" className="contact-section section-pad">
       <div className="contact-aura" aria-hidden="true" />
       <div className="container contact-content">
-        <span className="eyebrow reveal-up">04 / HAVE A GOOD ONE IN MIND?</span>
+        <span className="eyebrow">END OF THE JOURNEY / HAVE A GOOD ONE IN MIND?</span>
         <div className="contact-zoom"><h2>LET’S MAKE<br /><em>IT MATTER.</em></h2></div>
         <div className="contact-after">
           <p>Have an ambitious idea, a tricky product problem, or a digital experience you want to bring to life? Let’s talk.</p>
@@ -293,90 +260,60 @@ export default function App() {
   const enabledRef = useRef(false);
   enabledRef.current = loaded && !menuOpen;
 
-  // Horizontal pager: each wheel notch slides one step left to right, and the last slide loops back to the hero.
+  // Pager: each wheel notch, swipe or arrow key travels one stop; the last stop loops back to the hero.
   useEffect(() => {
     const root = appRef.current;
     const track = root.querySelector('.pager-track');
     const slides = [...track.children];
-    const workTrack = root.querySelector('.work-track');
-    const workIndex = slides.findIndex((slide) => slide.id === 'work');
     const header = root.querySelector('.site-header');
     const hudLinks = [...root.querySelectorAll('.section-hud a')];
-    const counter = root.querySelector('.rail-count b');
-    const bar = root.querySelector('.rail-bar i');
-    const cardCount = root.querySelectorAll('.project-card').length;
+    const travel = root.querySelector('.travel-bar');
+    const ship = travel.querySelector('.travel-ship');
+    const travelValue = travel.querySelector('.travel-value');
+    const flash = root.querySelector('.light-flash');
+    const bodyOf = (slide) => bodies.findIndex((body) => body.id === slides[slide].id);
 
-    let steps = [];
-    let railStep = 0;
-    let railMax = 0;
     let index = 0;
     let busy = false;
-    let shown = -1;
-
-    const buildSteps = () => {
-      railMax = Math.max(0, workTrack.scrollWidth - window.innerWidth);
-      const card = workTrack.children[0];
-      railStep = card ? card.offsetWidth + parseFloat(getComputedStyle(workTrack).columnGap || 0) : window.innerWidth;
-      const railCount = railMax > 0 ? Math.ceil(railMax / railStep) : 0;
-      steps = [];
-      slides.forEach((_, s) => {
-        steps.push({ slide: s, rail: 0 });
-        if (s === workIndex) for (let r = 1; r <= railCount; r += 1) steps.push({ slide: s, rail: r });
-      });
-    };
+    let shown = 0;
 
     const apply = (animate) => {
-      const { slide, rail } = steps[index];
-      const dur = animate ? 1.1 : 0;
-      const ease = 'power3.inOut';
-      gsap.to(track, { x: -slide * window.innerWidth, duration: dur, ease, overwrite: 'auto' });
-      const railX = -Math.min(rail * railStep, railMax);
-      gsap.to(workTrack, { x: railX, duration: dur, ease, overwrite: 'auto' });
-
-      const railProgress = railMax > 0 ? Math.min(rail * railStep, railMax) / railMax : 0;
-      motionState.rail = railProgress;
-      motionState.morph = 4;
-      motionState.planet = slide - 1;
-      motionState.progress = slides.length > 1 ? slide / (slides.length - 1) : 0;
-      if (progressRef.current) progressRef.current.style.transform = `scaleX(${(index + 1) / steps.length})`;
-      bar.style.transform = `scaleX(${railProgress})`;
-      counter.textContent = String(Math.min(cardCount, Math.round(railProgress * (cardCount - 1)) + 1)).padStart(2, '0');
-      hudLinks.forEach((link, i) => link.classList.toggle('is-active', i === slide));
-      header.classList.toggle('is-scrolled', slide > 0);
-      if (slide !== shown) {
-        if (shown >= 0) {
-          const left = slides[shown];
-          window.setTimeout(() => { left.scrollTop = 0; }, 1200);
-        }
-        shown = slide;
-        if (slide > 0) animateSlideIn(slides[slide]);
+      const body = bodyOf(index);
+      // Hold the page still while the light-speed jump plays, then slide the new stop in.
+      gsap.to(track, { x: -index * window.innerWidth, duration: animate ? 1.1 : 0, delay: animate ? 0.15 : 0, ease: 'power3.inOut', overwrite: 'auto' });
+      motionState.slide = index;
+      motionState.body = body;
+      motionState.progress = slides.length > 1 ? index / (slides.length - 1) : 0;
+      if (progressRef.current) progressRef.current.style.transform = `scaleX(${(index + 1) / slides.length})`;
+      hudLinks.forEach((link, i) => link.classList.toggle('is-active', i === index));
+      header.classList.toggle('is-scrolled', index > 0);
+      travel.classList.toggle('is-visible', body >= 0);
+      if (body >= 0) {
+        ship.style.left = `${travelPosition(bodies[body].au)}%`;
+        travelValue.textContent = bodies[body].au ? `${bodies[body].distance} · ${bodies[body].au} AU` : 'THE CENTRE';
+      }
+      if (index !== shown) {
+        const left = slides[shown];
+        window.setTimeout(() => { left.scrollTop = 0; }, 1300);
+        shown = index;
+        if (animate && body >= 0) lightJump(flash);
+        if (index > 0) animateSlideIn(slides[index]);
       }
     };
 
     const go = (target) => {
       if (busy || !enabledRef.current) return;
-      const next = ((target % steps.length) + steps.length) % steps.length;
+      const next = ((target % slides.length) + slides.length) % slides.length;
       if (next === index) return;
-      const wrapping = Math.abs(next - index) > 1;
       index = next;
       busy = true;
       apply(true);
-      window.setTimeout(() => { busy = false; }, wrapping ? 1300 : 900);
+      window.setTimeout(() => { busy = false; }, 1200);
     };
 
-    const goToSlide = (slide) => {
-      if (busy) return;
-      const target = steps.findIndex((step) => step.slide === slide && step.rail === 0);
-      if (target < 0 || target === index) return;
-      index = target;
-      busy = true;
-      apply(true);
-      window.setTimeout(() => { busy = false; }, 1300);
-    };
-
-    // Let tall slides scroll vertically first, then page sideways at their edge.
+    // Let tall slides scroll vertically first, then travel at their edge.
     const canScrollInside = (dir) => {
-      const el = slides[steps[index].slide];
+      const el = slides[index];
       if (getComputedStyle(el).overflowY !== 'auto' || el.scrollHeight <= el.clientHeight + 2) return false;
       return dir > 0 ? el.scrollTop + el.clientHeight < el.scrollHeight - 2 : el.scrollTop > 2;
     };
@@ -390,8 +327,7 @@ export default function App() {
       const dir = Math.sign(delta);
       if (!dir) return;
       if (event.deltaY && canScrollInside(dir)) {
-        const el = slides[steps[index].slide];
-        el.scrollTop += event.deltaY;
+        slides[index].scrollTop += event.deltaY;
         return;
       }
       wheelAcc += delta;
@@ -415,6 +351,7 @@ export default function App() {
       const dx = touchX - event.changedTouches[0].clientX;
       const dy = touchY - event.changedTouches[0].clientY;
       if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) go(index + Math.sign(dx));
+      else if (Math.abs(dy) > 60 && !canScrollInside(Math.sign(dy))) go(index + Math.sign(dy));
     };
 
     const onClick = (event) => {
@@ -423,16 +360,16 @@ export default function App() {
       event.preventDefault();
       const hash = link.getAttribute('href');
       const slide = hash === '#top' ? 0 : slides.findIndex((s) => `#${s.id}` === hash);
-      if (slide >= 0) goToSlide(slide);
+      if (slide >= 0 && slide !== index && !busy) {
+        index = slide;
+        busy = true;
+        apply(true);
+        window.setTimeout(() => { busy = false; }, 1300);
+      }
     };
 
-    const onResize = () => {
-      buildSteps();
-      index = Math.min(index, steps.length - 1);
-      apply(false);
-    };
+    const onResize = () => apply(false);
 
-    buildSteps();
     apply(false);
     window.addEventListener('wheel', onWheel, { passive: false });
     window.addEventListener('keydown', onKey);
@@ -469,24 +406,24 @@ export default function App() {
     <div className="site-root" ref={appRef}>
       <Preloader onReveal={revealRef.current} />
       <Experience />
+      <div className="light-flash" aria-hidden="true" />
       <div className="scroll-progress" ref={progressRef} />
       <div className="custom-cursor" aria-hidden="true">
         <span className="cursor-ring"><span className="cursor-label" /></span>
         <span className="cursor-dot" />
       </div>
       <Header menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
-      <nav className="section-hud" aria-label="Sections">
+      <nav className="section-hud" aria-label="Journey stops">
         {hudItems.map((item, i) => (
-          <a key={item.href} href={item.href}><span>{item.label}</span><small>0{i + 1}</small><i /></a>
+          <a key={item.href} href={item.href}><span>{item.label}</span><small>{pad(i)}</small><i /></a>
         ))}
       </nav>
+      <TravelBar />
       <MenuOverlay open={menuOpen} onClose={() => setMenuOpen(false)} />
       <main className="pager">
         <div className="pager-track">
           <Hero />
-          <WorkSection />
-          <AboutSection />
-          <CapabilitiesSection />
+          {bodies.map((body, i) => <PlanetSection key={body.id} body={body} index={i} />)}
           <ContactSection />
         </div>
       </main>
