@@ -1,24 +1,149 @@
 import gsap from 'gsap';
 import { SplitText } from 'gsap/SplitText';
+import { motionState, prefersReducedMotion } from './motionState.js';
 
 gsap.registerPlugin(SplitText);
 
+const GLYPHS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/*+<>';
+
+// Decode-style text swap: letters resolve left to right through random glyphs.
+function scrambleTo(el, text, duration = 1) {
+  const from = el.textContent;
+  const length = Math.max(from.length, text.length);
+  const state = { p: 0 };
+  return gsap.to(state, {
+    p: 1,
+    duration,
+    ease: 'none',
+    onUpdate: () => {
+      const done = state.p * length;
+      let out = '';
+      for (let i = 0; i < length; i += 1) {
+        if (i < done) out += text[i] ?? '';
+        else if (i < done + 5) out += text[i] === ' ' ? ' ' : GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
+        else out += from[i] ?? '';
+      }
+      el.textContent = out;
+    },
+  });
+}
+
+// Runs inside a gsap.context; the returned function cleans up the timers on revert.
 export function heroIntro() {
+  if (prefersReducedMotion()) {
+    motionState.intro = 1;
+    return undefined;
+  }
+
   const title = SplitText.create('.hero h1', { type: 'words,chars', tag: 'span', charsClass: 'char', wordsClass: 'split-word' });
+  const outlineChars = title.chars.filter((c) => c.closest('em'));
+  const solidChars = title.chars.filter((c) => !c.closest('em'));
+
+  // The galaxy is born behind the title while the camera sweeps down to it.
+  gsap.fromTo(motionState, { intro: 0 }, { intro: 1, duration: 5, ease: 'power2.out' });
+
   gsap.timeline({ delay: 0.1 })
+    .from('.hero-orbits', { scale: 0.35, opacity: 0, rotate: -40, duration: 3, ease: 'expo.out' }, 0.4)
     .from(title.chars, {
       yPercent: 120, rotateX: -95, opacity: 0, filter: 'blur(10px)', transformPerspective: 700, transformOrigin: '50% 100%',
       duration: 1.4, ease: 'expo.out', stagger: 0.04,
-    })
-    .from('.hero-kicker', { opacity: 0, y: 16, letterSpacing: '0.6em', duration: 1.1, ease: 'expo.out' }, 0.25)
-    .from('.hero-description', { opacity: 0, y: 20, duration: 1, ease: 'expo.out' }, 0.55)
-    .from('.hero-cta', { opacity: 0, y: 20, duration: 1, ease: 'expo.out' }, 0.7)
-    .from('.hero-frame > *, .hero-bottom > *', { opacity: 0, duration: 1.2, stagger: 0.08 }, 0.6)
-    .from('.site-header > *, .section-hud', { opacity: 0, y: -20, duration: 1, ease: 'expo.out', stagger: 0.1 }, 0.4);
+    }, 0.9)
+    .from('.hero-kicker', { opacity: 0, y: 16, letterSpacing: '0.6em', duration: 1.1, ease: 'expo.out' }, 1.1)
+    .from('.hero-description', { opacity: 0, y: 20, duration: 1, ease: 'expo.out' }, 1.5)
+    .from('.hero-cta', { opacity: 0, y: 20, duration: 1, ease: 'expo.out' }, 1.65)
+    .from('.hero-frame > *, .hero-bottom > *', { opacity: 0, duration: 1.2, stagger: 0.08 }, 1.6)
+    .from('.hero-telemetry > *', { opacity: 0, x: -14, duration: 1, ease: 'expo.out', stagger: 0.08 }, 1.8)
+    .from('.site-header > *, .section-hud', { opacity: 0, y: -20, duration: 1, ease: 'expo.out', stagger: 0.1 }, 1.2);
+
+  // Living title: the solid line floats, a light wave runs through the outlined line.
+  gsap.to(solidChars, {
+    y: -7, duration: 1.8, ease: 'sine.inOut', delay: 2.6,
+    stagger: { each: 0.12, repeat: -1, yoyo: true },
+  });
+  gsap.to(outlineChars, {
+    color: 'rgba(155, 222, 255, 0.3)', textShadow: '0 0 24px rgba(155, 222, 255, 0.85)',
+    duration: 0.6, ease: 'sine.inOut', delay: 3,
+    stagger: { each: 0.07, repeat: -1, yoyo: true, repeatDelay: 2.2 },
+  });
+
+  const glow = document.querySelector('.hero-glow');
+  if (glow) gsap.to(glow, { scale: 1.15, opacity: 0.7, duration: 4, ease: 'sine.inOut', repeat: -1, yoyo: true });
+
+  // Telemetry: star counter, a ticking right-ascension clock and cycling kicker phrases.
+  const starsEl = document.querySelector('[data-stars]');
+  if (starsEl) {
+    const stars = { n: 0 };
+    gsap.to(stars, {
+      n: window.innerWidth < 768 ? 9000 : 24000, duration: 4, ease: 'power3.out', delay: 1.6,
+      onUpdate: () => { starsEl.textContent = Math.round(stars.n).toLocaleString('en-US'); },
+    });
+  }
+  const raEl = document.querySelector('[data-ra]');
+  let seconds = 5 * 3600 + 35 * 60 + 17;
+  const clock = window.setInterval(() => {
+    seconds += 1;
+    if (!raEl) return;
+    const h = String(Math.floor(seconds / 3600) % 24).padStart(2, '0');
+    const m = String(Math.floor(seconds / 60) % 60).padStart(2, '0');
+    const s = String(seconds % 60).padStart(2, '0');
+    raEl.textContent = `${h}h ${m}m ${s}s`;
+  }, 1000);
+
+  const kicker = document.querySelector('.kicker-text');
+  const phrases = kicker?.dataset.phrases.split('|') ?? [];
+  let phrase = 0;
+  const cycle = window.setInterval(() => {
+    if (!kicker || phrases.length < 2) return;
+    phrase = (phrase + 1) % phrases.length;
+    scrambleTo(kicker, phrases[phrase]);
+  }, 4200);
+
+  return () => {
+    window.clearInterval(clock);
+    window.clearInterval(cycle);
+    if (kicker && phrases[0]) kicker.textContent = phrases[0];
+  };
 }
 
-// A slide's content eases in from the right as the pager brings it into view.
+// The light-speed flash that plays as the camera jumps between worlds.
+export function lightJump(flash) {
+  if (!flash || prefersReducedMotion()) return;
+  gsap.timeline()
+    .fromTo(flash, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'power2.in', delay: 0.2 })
+    .to(flash, { opacity: 0, scale: 1.5, duration: 1.1, ease: 'power2.out' });
+}
+
+// A stop's content arrives once the new planet has landed: the name decodes in,
+// copy rises, and the stats count up from zero.
 export function animateSlideIn(slide) {
-  const items = slide.querySelectorAll('.eyebrow, h2, .work-intro-row, .project-card, .work-end-card, .about-aside, .about-stats > div, .about-right p, .values-list span, .capabilities-intro, .capability-row, .contact-after > *');
-  gsap.fromTo(items, { x: 90, opacity: 0 }, { x: 0, opacity: 1, duration: 1.1, ease: 'expo.out', stagger: 0.04, delay: 0.25, overwrite: 'auto' });
+  const reduced = prefersReducedMotion();
+  const name = slide.querySelector('.planet-name');
+  if (name) {
+    if (!name.dataset.split) {
+      SplitText.create(name, { type: 'chars', tag: 'span', charsClass: 'char' });
+      name.dataset.split = '1';
+    }
+    gsap.fromTo(name.querySelectorAll('.char'),
+      { yPercent: 110, rotateX: -90, opacity: 0, filter: 'blur(8px)' },
+      { yPercent: 0, rotateX: 0, opacity: 1, filter: 'blur(0px)', transformPerspective: 700, transformOrigin: '50% 100%', duration: reduced ? 0 : 1.2, ease: 'expo.out', stagger: 0.05, delay: 0.75, overwrite: 'auto' });
+  }
+
+  const items = slide.querySelectorAll('.planet-top, .planet-tagline, .planet-desc, .planet-stats > div, .planet-fact, .callout, .contact-content > .eyebrow, .contact-zoom, .contact-after > *');
+  gsap.fromTo(items, { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: reduced ? 0 : 1, ease: 'expo.out', stagger: 0.07, delay: 0.85, overwrite: 'auto' });
+  gsap.fromTo(slide.querySelectorAll('.planet-ghost'), { opacity: 0, scale: 1.4 }, { opacity: 1, scale: 1, duration: reduced ? 0 : 1.8, ease: 'expo.out', delay: 0.6, overwrite: 'auto' });
+
+  slide.querySelectorAll('[data-num]').forEach((el) => {
+    const target = Number(el.dataset.num);
+    const decimals = Number(el.dataset.decimals);
+    const value = { n: 0 };
+    gsap.to(value, {
+      n: target,
+      duration: reduced ? 0 : 1.8,
+      delay: 1.1,
+      ease: 'power3.out',
+      onUpdate: () => {
+        el.textContent = value.n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+      },
+    });
+  });
 }
