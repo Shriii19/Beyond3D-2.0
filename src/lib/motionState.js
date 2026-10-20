@@ -6,7 +6,10 @@ export const motionState = {
   dive: 0, // hero zoom-through, 0 → 1
   rail: 0, // horizontal work rail, 0 → 1
   morph: 4, // galaxy form stays as the permanent background
-  planet: -1, // solid planet to show (-1 none); the particle galaxy always stays behind
+  slide: 0, // pager stop: 0 is the hero
+  body: -1, // index into data/planets.js of the body on screen (-1 none)
+  warp: 0, // light-speed jump between bodies, 0 → 1
+  intro: 0, // galaxy formation on first reveal, 0 → 1
   dragX: 0,
   dragY: 0,
 };
