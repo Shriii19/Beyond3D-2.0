@@ -5,7 +5,7 @@ import gsap from 'gsap';
 import Experience from './components/Experience.jsx';
 import { bodies } from './data/planets.js';
 import { motionState } from './lib/motionState.js';
-import { animateSlideIn, heroIntro, lightJump } from './lib/pager.js';
+import { heroIntro, lightJump, transitionSlides } from './lib/pager.js';
 import { initInteractions } from './lib/interactions.js';
 
 const menuItems = [
@@ -180,7 +180,7 @@ const travelPosition = (au) => (Math.log10(1 + au * 3) / Math.log10(1 + 30.05 * 
 
 function PlanetSection({ body, index }) {
   return (
-    <section id={body.id} className={`planet-slide planet-${body.id}`}>
+    <section id={body.id} className={`planet-slide planet-${body.id}${index % 2 ? ' is-flipped' : ''}`}>
       <span className="planet-ghost" aria-hidden="true">{pad(index)}</span>
       <div className="planet-info">
         <div className="planet-top">
@@ -260,7 +260,7 @@ export default function App() {
   const enabledRef = useRef(false);
   enabledRef.current = loaded && !menuOpen;
 
-  // Pager: each wheel notch, swipe or arrow key travels one stop; the last stop loops back to the hero.
+  // Pager: one scroll gesture, swipe or arrow key travels exactly one stop.
   useEffect(() => {
     const root = appRef.current;
     const track = root.querySelector('.pager-track');
@@ -275,12 +275,9 @@ export default function App() {
 
     let index = 0;
     let busy = false;
-    let shown = 0;
 
-    const apply = (animate) => {
+    const sync = () => {
       const body = bodyOf(index);
-      // Hold the page still while the light-speed jump plays, then slide the new stop in.
-      gsap.to(track, { x: -index * window.innerWidth, duration: animate ? 1.1 : 0, delay: animate ? 0.15 : 0, ease: 'power3.inOut', overwrite: 'auto' });
       motionState.slide = index;
       motionState.body = body;
       motionState.progress = slides.length > 1 ? index / (slides.length - 1) : 0;
@@ -292,66 +289,82 @@ export default function App() {
         ship.style.left = `${travelPosition(bodies[body].au)}%`;
         travelValue.textContent = bodies[body].au ? `${bodies[body].distance} · ${bodies[body].au} AU` : 'THE CENTRE';
       }
-      if (index !== shown) {
-        const left = slides[shown];
-        window.setTimeout(() => { left.scrollTop = 0; }, 1300);
-        shown = index;
-        if (animate && body >= 0) lightJump(flash);
-        if (index > 0) animateSlideIn(slides[index]);
-      }
     };
 
-    const go = (target) => {
-      if (busy || !enabledRef.current) return;
-      const next = ((target % slides.length) + slides.length) % slides.length;
-      if (next === index) return;
+    // Returns true when a move actually started.
+    const goTo = (next) => {
+      if (!enabledRef.current || busy) return false;
+      if (next < 0 || next >= slides.length || next === index) return false;
+      const prev = index;
+      const dir = next > prev ? 1 : -1;
       index = next;
+      motionState.direction = dir;
+      sync();
+      if (bodyOf(next) >= 0) lightJump(flash);
       busy = true;
-      apply(true);
-      window.setTimeout(() => { busy = false; }, 1200);
+      transitionSlides(slides[prev], slides[next], dir, () => { busy = false; });
+      return true;
     };
 
-    // Let tall slides scroll vertically first, then travel at their edge.
+    // Let tall slides (on phones) scroll vertically first, then travel at their edge.
     const canScrollInside = (dir) => {
       const el = slides[index];
       if (getComputedStyle(el).overflowY !== 'auto' || el.scrollHeight <= el.clientHeight + 2) return false;
       return dir > 0 ? el.scrollTop + el.clientHeight < el.scrollHeight - 2 : el.scrollTop > 2;
     };
 
+    // Trackpads keep firing wheel events for a second or two after a flick. Treat a
+    // run of events with no pause longer than 220ms as one gesture, and move at most
+    // one stop per gesture so a single flick never skips planets.
+    let lastWheel = 0;
+    let gestureSpent = false;
     let wheelAcc = 0;
-    let wheelTimer = 0;
     const onWheel = (event) => {
       event.preventDefault();
       if (!enabledRef.current) return;
+      const now = performance.now();
+      if (now - lastWheel > 220) {
+        gestureSpent = false;
+        wheelAcc = 0;
+      }
+      lastWheel = now;
       const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
       const dir = Math.sign(delta);
-      if (!dir) return;
+      if (!dir || gestureSpent) return;
       if (event.deltaY && canScrollInside(dir)) {
         slides[index].scrollTop += event.deltaY;
+        gestureSpent = true;
         return;
       }
       wheelAcc += delta;
-      window.clearTimeout(wheelTimer);
-      wheelTimer = window.setTimeout(() => { wheelAcc = 0; }, 160);
-      if (Math.abs(wheelAcc) > 12) {
+      if (Math.abs(wheelAcc) >= 30) {
+        gestureSpent = true;
         wheelAcc = 0;
-        go(index + dir);
+        goTo(index + dir);
       }
     };
 
     const onKey = (event) => {
-      if (['ArrowDown', 'ArrowRight', 'PageDown'].includes(event.key)) go(index + 1);
-      if (['ArrowUp', 'ArrowLeft', 'PageUp'].includes(event.key)) go(index - 1);
+      if (['ArrowDown', 'ArrowRight', 'PageDown', ' '].includes(event.key)) goTo(index + 1);
+      if (['ArrowUp', 'ArrowLeft', 'PageUp'].includes(event.key)) goTo(index - 1);
+      if (event.key === 'Home') goTo(0);
+      if (event.key === 'End') goTo(slides.length - 1);
     };
 
     let touchX = 0;
     let touchY = 0;
-    const onTouchStart = (event) => { touchX = event.touches[0].clientX; touchY = event.touches[0].clientY; };
+    let touchScrollStart = 0;
+    const onTouchStart = (event) => {
+      touchX = event.touches[0].clientX;
+      touchY = event.touches[0].clientY;
+      touchScrollStart = slides[index].scrollTop;
+    };
     const onTouchEnd = (event) => {
       const dx = touchX - event.changedTouches[0].clientX;
       const dy = touchY - event.changedTouches[0].clientY;
-      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) go(index + Math.sign(dx));
-      else if (Math.abs(dy) > 60 && !canScrollInside(Math.sign(dy))) go(index + Math.sign(dy));
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) goTo(index + Math.sign(dx));
+      // Only travel vertically if this swipe didn't just scroll the slide's own content.
+      else if (Math.abs(dy) > 60 && slides[index].scrollTop === touchScrollStart && !canScrollInside(Math.sign(dy))) goTo(index + Math.sign(dy));
     };
 
     const onClick = (event) => {
@@ -359,31 +372,21 @@ export default function App() {
       if (!link) return;
       event.preventDefault();
       const hash = link.getAttribute('href');
-      const slide = hash === '#top' ? 0 : slides.findIndex((s) => `#${s.id}` === hash);
-      if (slide >= 0 && slide !== index && !busy) {
-        index = slide;
-        busy = true;
-        apply(true);
-        window.setTimeout(() => { busy = false; }, 1300);
-      }
+      goTo(hash === '#top' ? 0 : slides.findIndex((s) => `#${s.id}` === hash));
     };
 
-    const onResize = () => apply(false);
-
-    apply(false);
+    slides[0].classList.add('is-active');
+    sync();
     window.addEventListener('wheel', onWheel, { passive: false });
     window.addEventListener('keydown', onKey);
     window.addEventListener('touchstart', onTouchStart, { passive: true });
     window.addEventListener('touchend', onTouchEnd, { passive: true });
-    window.addEventListener('resize', onResize);
     document.addEventListener('click', onClick);
     return () => {
-      window.clearTimeout(wheelTimer);
       window.removeEventListener('wheel', onWheel);
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('touchstart', onTouchStart);
       window.removeEventListener('touchend', onTouchEnd);
-      window.removeEventListener('resize', onResize);
       document.removeEventListener('click', onClick);
     };
   }, []);
