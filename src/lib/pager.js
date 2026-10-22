@@ -113,10 +113,51 @@ export function lightJump(flash) {
     .to(flash, { opacity: 0, scale: 1.5, duration: 1.1, ease: 'power2.out' });
 }
 
-// A stop's content arrives once the new planet has landed: the name decodes in,
-// copy rises, and the stats count up from zero.
-export function animateSlideIn(slide) {
+const CONTENT = {
+  hero: '.hero-orbits, .hero-center, .hero-frame, .hero-telemetry, .hero-bottom',
+  planet: '.planet-ghost, .planet-top, .planet-name, .planet-tagline, .planet-desc, .planet-stats > div, .planet-fact, .callout',
+  contact: '.contact-content > *, .site-footer',
+};
+const contentOf = (slide) => {
+  if (slide.classList.contains('hero')) return slide.querySelectorAll(CONTENT.hero);
+  if (slide.classList.contains('planet-slide')) return slide.querySelectorAll(CONTENT.planet);
+  return slide.querySelectorAll(CONTENT.contact);
+};
+
+// Swap two stops in place. The old content drifts away in the direction of travel,
+// the stops swap while the planet is in flight, and the new content lands after it.
+// `onDone` fires once the move has really finished, however long the frames took.
+export function transitionSlides(from, to, dir, onDone) {
   const reduced = prefersReducedMotion();
+  const out = contentOf(from);
+  const leaving = from.classList.contains('hero')
+    ? { scale: dir > 0 ? 1.25 : 0.85, opacity: 0, filter: 'blur(10px)' }
+    : { y: -60 * dir, opacity: 0, filter: 'blur(8px)' };
+
+  gsap.killTweensOf(contentOf(to));
+  gsap.timeline()
+    .to(out, { ...leaving, duration: reduced ? 0 : 0.45, ease: 'power2.in', stagger: 0.02, overwrite: 'auto' })
+    .add(() => {
+      [...to.parentElement.children].forEach((slide) => slide.classList.toggle('is-active', slide === to));
+      gsap.set(out, { clearProps: 'transform,opacity,filter' });
+      from.scrollTop = 0;
+      animateSlideIn(to, dir, reduced ? 0 : 0.5);
+    })
+    .add(() => onDone?.(), reduced ? '+=0.1' : '+=0.9');
+}
+
+// A stop's content arrives once the new planet has landed: the name decodes in,
+// copy rises from the direction of travel, and the stats count up from zero.
+export function animateSlideIn(slide, dir = 1, delay = 0) {
+  const reduced = prefersReducedMotion();
+  const d = (seconds) => (reduced ? 0 : seconds);
+
+  if (slide.classList.contains('hero')) {
+    gsap.fromTo(contentOf(slide), { scale: dir > 0 ? 0.85 : 1.2, opacity: 0, filter: 'blur(10px)' },
+      { scale: 1, opacity: 1, filter: 'blur(0px)', duration: d(1.1), delay, ease: 'expo.out', stagger: 0.05, overwrite: 'auto' });
+    return;
+  }
+
   const name = slide.querySelector('.planet-name');
   if (name) {
     if (!name.dataset.split) {
@@ -124,13 +165,13 @@ export function animateSlideIn(slide) {
       name.dataset.split = '1';
     }
     gsap.fromTo(name.querySelectorAll('.char'),
-      { yPercent: 110, rotateX: -90, opacity: 0, filter: 'blur(8px)' },
-      { yPercent: 0, rotateX: 0, opacity: 1, filter: 'blur(0px)', transformPerspective: 700, transformOrigin: '50% 100%', duration: reduced ? 0 : 1.2, ease: 'expo.out', stagger: 0.05, delay: 0.75, overwrite: 'auto' });
+      { yPercent: 110 * dir, rotateX: -90 * dir, opacity: 0, filter: 'blur(8px)' },
+      { yPercent: 0, rotateX: 0, opacity: 1, filter: 'blur(0px)', transformPerspective: 700, transformOrigin: '50% 100%', duration: d(1.1), ease: 'expo.out', stagger: 0.045, delay, overwrite: 'auto' });
   }
 
-  const items = slide.querySelectorAll('.planet-top, .planet-tagline, .planet-desc, .planet-stats > div, .planet-fact, .callout, .contact-content > .eyebrow, .contact-zoom, .contact-after > *');
-  gsap.fromTo(items, { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: reduced ? 0 : 1, ease: 'expo.out', stagger: 0.07, delay: 0.85, overwrite: 'auto' });
-  gsap.fromTo(slide.querySelectorAll('.planet-ghost'), { opacity: 0, scale: 1.4 }, { opacity: 1, scale: 1, duration: reduced ? 0 : 1.8, ease: 'expo.out', delay: 0.6, overwrite: 'auto' });
+  const items = [...contentOf(slide)].filter((el) => el !== name);
+  gsap.fromTo(items, { y: 50 * dir, opacity: 0, filter: 'blur(6px)' },
+    { y: 0, opacity: 1, filter: 'blur(0px)', duration: d(1), ease: 'expo.out', stagger: 0.05, delay: delay + d(0.1), overwrite: 'auto' });
 
   slide.querySelectorAll('[data-num]').forEach((el) => {
     const target = Number(el.dataset.num);
@@ -138,8 +179,8 @@ export function animateSlideIn(slide) {
     const value = { n: 0 };
     gsap.to(value, {
       n: target,
-      duration: reduced ? 0 : 1.8,
-      delay: 1.1,
+      duration: d(1.6),
+      delay: delay + d(0.35),
       ease: 'power3.out',
       onUpdate: () => {
         el.textContent = value.n.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
