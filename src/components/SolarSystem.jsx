@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { bodies } from '../data/planets.js';
-import { motionState } from '../lib/motionState.js';
+import { isStacked, motionState } from '../lib/motionState.js';
 import { simplexNoise } from '../lib/noise.js';
 
 // One celestial body on screen at a time. Paging to a new stop flies the current
@@ -255,6 +255,10 @@ const moonFragment = /* glsl */ `
   }
 `;
 
+// Camera distance on planet stops; CameraRig in Experience.jsx uses the same values.
+export const CAMERA_Z_SIDE = 9;
+export const CAMERA_Z_STACKED = 11;
+
 const easeOutExpo = (t) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t));
 const BACKLIT = new THREE.Vector3(0.25, 0.15, -1).normalize();
 const SUNLIT = new THREE.Vector3(-0.7, 0.35, 0.6).normalize();
@@ -285,7 +289,7 @@ export default function SolarSystem() {
   const halo = useRef();
   const corona = useRef();
   const ring = useRef();
-  const state = useRef({ shown: -1, phase: 'hidden', t: 0, want: -1 });
+  const state = useRef({ shown: -1, phase: 'hidden', t: 0, want: -1, dir: 1 });
   const temp = useMemo(() => ({ base: new THREE.Vector3(), light: new THREE.Vector3(), center: new THREE.Vector3() }), []);
 
   const uniforms = useMemo(() => ({
@@ -356,13 +360,16 @@ export default function SolarSystem() {
   useFrame((frame, delta) => {
     const dt = Math.min(delta, 0.05);
     const s = state.current;
-    const wide = size.width / size.height > 1;
+    const aspect = size.width / size.height;
+    const stacked = isStacked();
     uniforms.uTime.value += dt;
     const want = motionState.body;
 
-    // State machine: leave → (swap) → arrive → idle.
+    // State machine: leave → (swap) → arrive → idle. Travelling outward the planet flies
+    // past the camera and the next one rushes in from deep space; travelling back it is reversed.
     if (want !== s.want) {
       s.want = want;
+      s.dir = motionState.direction;
       if (s.phase === 'hidden') {
         if (want >= 0) { applyLook(want); s.shown = want; s.phase = 'arrive'; s.t = 0; }
       } else if (s.phase !== 'leave') {
@@ -371,31 +378,40 @@ export default function SolarSystem() {
       }
     }
     if (s.phase === 'leave') {
-      s.t += dt / 0.6;
+      s.t += dt / 0.5;
       if (s.t >= 1) {
         if (s.want >= 0) { applyLook(s.want); s.shown = s.want; s.phase = 'arrive'; s.t = 0; }
         else { s.shown = -1; s.phase = 'hidden'; }
       }
     } else if (s.phase === 'arrive') {
-      s.t += dt / 1.9;
+      s.t += dt / 1.5;
       if (s.t >= 1) { s.t = 1; s.phase = 'idle'; }
     }
 
     const l = look.current;
-    temp.base.set(wide ? 2.7 : 0, wide ? -0.1 : 2.7, wide ? 0 : -2.5);
-    if (l.ring && wide) temp.base.x = 2.5;
+    // Fit the body to the space the layout leaves it. Side by side it fills its half,
+    // alternating sides each stop; stacked it sits centred above the text.
+    const halfH = Math.tan(THREE.MathUtils.degToRad(22.5)) * (stacked ? CAMERA_Z_STACKED : CAMERA_Z_SIDE);
+    const halfW = halfH * aspect;
+    const extent = l.ring ? l.ring.outer * l.radius * 0.92 : l.radius * 1.12;
+    const side = s.shown % 2 === 0 ? 1 : -1;
+    const room = stacked ? Math.min(halfW * 0.84, halfH * 0.36) : Math.min(halfW * 0.42, halfH * 0.8);
+    temp.base.set(stacked ? 0 : side * halfW * 0.47, stacked ? halfH * 0.47 : -0.1, 0);
     const g = root.current;
     g.visible = s.phase !== 'hidden';
-    g.scale.setScalar(wide ? 1 : 0.6);
+    g.scale.setScalar(Math.min(1, room / extent));
     let warp = 0;
+    const forward = s.dir >= 0;
     if (s.phase === 'leave') {
       const k = s.t * s.t;
-      g.position.set(temp.base.x - k * 11, temp.base.y + k * 1.5, temp.base.z + k * 5);
+      if (forward) g.position.set(temp.base.x - k * 11, temp.base.y + k * 1.5, temp.base.z + k * 5);
+      else g.position.set(temp.base.x * (1 - k * 0.6), temp.base.y + k, temp.base.z - k * 80);
       warp = Math.sin(Math.min(s.t, 1) * Math.PI * 0.5);
     } else if (s.phase === 'arrive') {
       const e = easeOutExpo(s.t);
-      g.position.set(lerp(temp.base.x + 7, temp.base.x, e), lerp(temp.base.y + 1.5, temp.base.y, e), lerp(-110, temp.base.z, e));
-      warp = clamp(1 - s.t * 2.2, 0, 1);
+      if (forward) g.position.set(lerp(temp.base.x + 7, temp.base.x, e), lerp(temp.base.y + 1.5, temp.base.y, e), lerp(-110, temp.base.z, e));
+      else g.position.set(lerp(temp.base.x * 1.5 + 3, temp.base.x, e), lerp(temp.base.y - 1, temp.base.y, e), lerp(14, temp.base.z, e));
+      warp = clamp(1 - s.t * 2.4, 0, 1);
     } else {
       g.position.lerp(temp.base, 1 - Math.exp(-3 * dt));
     }
