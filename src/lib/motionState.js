@@ -9,6 +9,7 @@ export const motionState = {
   slide: 0, // pager stop: 0 is the hero
   body: -1, // index into data/planets.js of the body on screen (-1 none)
   warp: 0, // light-speed jump between bodies, 0 → 1
+  direction: 1, // 1 travelling outward, -1 travelling back toward the hero
   intro: 0, // galaxy formation on first reveal, 0 → 1
   dragX: 0,
   dragY: 0,
@@ -26,4 +27,13 @@ export function getLenis() {
 
 export function prefersReducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+// Portrait or narrow screens stack the planet above its text. The same query drives
+// the CSS layout in styles.css, so the 3D framing and the page always agree.
+export const STACKED_QUERY = '(max-aspect-ratio: 1/1), (max-width: 700px)';
+const stackedMedia = typeof window !== 'undefined' ? window.matchMedia(STACKED_QUERY) : null;
+
+export function isStacked() {
+  return stackedMedia?.matches ?? false;
 }

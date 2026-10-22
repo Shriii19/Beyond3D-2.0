@@ -2,9 +2,9 @@ import { useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
-import { getLenis, motionState } from '../lib/motionState.js';
+import { getLenis, isStacked, motionState } from '../lib/motionState.js';
 import Galaxy, { seeded } from './Galaxy.jsx';
-import SolarSystem from './SolarSystem.jsx';
+import SolarSystem, { CAMERA_Z_SIDE, CAMERA_Z_STACKED } from './SolarSystem.jsx';
 
 // One persistent scene sits behind the whole page: the galaxy fills the hero,
 // then recedes behind the Sun and planets as the journey travels outward.
@@ -103,7 +103,7 @@ function CameraRig() {
       target.pos.set(0, 11, -1.2).lerp(target.a, intro);
       target.look.set(0, -0.3, -2).lerp(target.a.set(0, -0.6, -2), intro);
     } else {
-      target.pos.set(0, 0.3, wide ? 9 : 11);
+      target.pos.set(0, 0.3, isStacked() ? CAMERA_Z_STACKED : CAMERA_Z_SIDE);
       target.look.set(0, 0, -1);
     }
     target.pos.x += motionState.pointer.x * 0.35;
