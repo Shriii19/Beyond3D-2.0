@@ -9,6 +9,10 @@ export const motionState = {
   slide: 0, // pager stop: 0 is the hero
   body: -1, // index into data/planets.js of the body on screen (-1 none)
   warp: 0, // light-speed jump between bodies, 0 → 1
+  timeScale: 1,
+  spinEnabled: true,
+  orbitEnabled: true,
+  resetVersion: 0,
   direction: 1, // 1 travelling outward, -1 travelling back toward the hero
   intro: 0, // galaxy formation on first reveal, 0 → 1
   dragX: 0,
