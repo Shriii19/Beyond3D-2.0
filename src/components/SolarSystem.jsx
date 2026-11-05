@@ -17,6 +17,7 @@ const LOOKS = {
   mercury: { type: 1, radius: 1.15, a: '#3f3b38', b: '#8f8780', c: '#cfc8bf', atmos: '#9a948d', atmosStrength: 0.12, noise: 2.6, craters: 1, spin: 0.05 },
   venus: { type: 3, radius: 1.5, a: '#9a6a2c', b: '#e3c07f', c: '#fff1cf', atmos: '#ffd08a', atmosStrength: 0.9, noise: 1.3, bands: 2.2, warp: 5, flow: 0.5, spin: 0.02 },
   earth: { type: 2, radius: 1.55, atmos: '#5fb6ff', atmosStrength: 1, tilt: 0.41, spin: 0.08, moons: [{ size: 0.27, orbit: 3.1, speed: 0.22, color: '#bdb8b0', incline: 0.15 }] },
+  moon: { type: 1, radius: 1.12, a: '#55534f', b: '#a7a39c', c: '#e0ddd6', atmos: '#c4c0b9', atmosStrength: 0.08, noise: 2.4, craters: 1.2, spin: 0.025 },
   mars: { type: 1, radius: 1.3, a: '#4a1c0e', b: '#b24f26', c: '#e39060', atmos: '#ff8a5c', atmosStrength: 0.35, noise: 1.8, craters: 0.45, caps: 1, tilt: 0.44, spin: 0.08, moons: [{ size: 0.08, orbit: 2.0, speed: 0.9, color: '#8a7b6e', incline: 0.02 }, { size: 0.06, orbit: 2.7, speed: 0.5, color: '#9a8c80', incline: 0.03 }] },
   jupiter: { type: 3, radius: 2.15, a: '#6e4026', b: '#d9b48a', c: '#f6eee0', atmos: '#e8c9a0', atmosStrength: 0.5, noise: 1.2, bands: 7, warp: 2.6, flow: 1, spot: 1, spotColor: '#b4472a', spin: 0.12, moons: [{ size: 0.1, orbit: 3, speed: 0.6, color: '#e8d27a', incline: 0.02 }, { size: 0.09, orbit: 3.5, speed: 0.45, color: '#d9d4c8', incline: 0.02 }, { size: 0.14, orbit: 4.1, speed: 0.32, color: '#9c8d7c', incline: 0.03 }, { size: 0.13, orbit: 4.7, speed: 0.24, color: '#6e6258', incline: 0.03 }] },
   saturn: { type: 3, radius: 1.6, a: '#806640', b: '#d8bf8c', c: '#f3e6c6', atmos: '#f0d9a8', atmosStrength: 0.45, noise: 1.1, bands: 6, warp: 1.2, flow: 0.8, tilt: 0.47, spin: 0.11, ring: { inner: 1.25, outer: 2.35, color: '#e2d0aa', opacity: 0.9 }, moons: [{ size: 0.13, orbit: 4.1, speed: 0.25, color: '#d9a35a', incline: 0.05 }] },
@@ -267,7 +268,7 @@ function Moon({ moon, index, uniforms }) {
   const pivot = useRef();
   const own = useMemo(() => ({ uColor: { value: new THREE.Color(moon.color) }, uLightDir: uniforms.uLightDir }), [moon.color, uniforms]);
   useFrame((_, delta) => {
-    if (pivot.current) pivot.current.rotation.y += Math.min(delta, 0.05) * moon.speed;
+    if (pivot.current && motionState.spinEnabled) pivot.current.rotation.y += Math.min(delta, 0.05) * motionState.timeScale * moon.speed;
   });
   return (
     <group rotation={[moon.incline, index * 1.7, 0]}>
@@ -289,7 +290,7 @@ export default function SolarSystem() {
   const halo = useRef();
   const corona = useRef();
   const ring = useRef();
-  const state = useRef({ shown: -1, phase: 'hidden', t: 0, want: -1, dir: 1 });
+  const state = useRef({ shown: -1, phase: 'hidden', t: 0, want: -1, dir: 1, resetVersion: 0 });
   const temp = useMemo(() => ({ base: new THREE.Vector3(), light: new THREE.Vector3(), center: new THREE.Vector3() }), []);
 
   const uniforms = useMemo(() => ({
@@ -362,8 +363,13 @@ export default function SolarSystem() {
     const s = state.current;
     const aspect = size.width / size.height;
     const stacked = isStacked();
-    uniforms.uTime.value += dt;
+    uniforms.uTime.value += dt * motionState.timeScale;
     const want = motionState.body;
+    if (s.resetVersion !== motionState.resetVersion) {
+      s.resetVersion = motionState.resetVersion;
+      spinner.current.rotation.set(0, 0, 0);
+      root.current.rotation.set(0, 0, 0);
+    }
 
     // State machine: leave → (swap) → arrive → idle. Travelling outward the planet flies
     // past the camera and the next one rushes in from deep space; travelling back it is reversed.
@@ -394,12 +400,12 @@ export default function SolarSystem() {
     const halfH = Math.tan(THREE.MathUtils.degToRad(22.5)) * (stacked ? CAMERA_Z_STACKED : CAMERA_Z_SIDE);
     const halfW = halfH * aspect;
     const extent = l.ring ? l.ring.outer * l.radius * 0.92 : l.radius * 1.12;
-    const side = s.shown % 2 === 0 ? 1 : -1;
+    const side = 1.2;
     const room = stacked ? Math.min(halfW * 0.84, halfH * 0.36) : Math.min(halfW * 0.42, halfH * 0.8);
     temp.base.set(stacked ? 0 : side * halfW * 0.47, stacked ? halfH * 0.47 : -0.1, 0);
     const g = root.current;
     g.visible = s.phase !== 'hidden';
-    g.scale.setScalar(Math.min(1, room / extent));
+    g.scale.setScalar(Math.min(1, room / extent) * (stacked ? 1 : 0.78));
     let warp = 0;
     const forward = s.dir >= 0;
     if (s.phase === 'leave') {
@@ -424,7 +430,7 @@ export default function SolarSystem() {
     temp.light.y -= motionState.pointer.y * 0.2 * sweep;
     uniforms.uLightDir.value.copy(temp.light.normalize());
 
-    spinner.current.rotation.y += dt * l.spin;
+    if (motionState.spinEnabled) spinner.current.rotation.y += dt * motionState.timeScale * l.spin;
     g.rotation.x = damp(g.rotation.x, motionState.dragY, 6, dt);
     g.rotation.y = damp(g.rotation.y, motionState.dragX, 6, dt);
 
