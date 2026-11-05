@@ -103,7 +103,8 @@ function CameraRig() {
       target.pos.set(0, 11, -1.2).lerp(target.a, intro);
       target.look.set(0, -0.3, -2).lerp(target.a.set(0, -0.6, -2), intro);
     } else {
-      target.pos.set(0, 0.3, isStacked() ? CAMERA_Z_STACKED : CAMERA_Z_SIDE);
+      const orbit = motionState.orbitEnabled ? t * motionState.timeScale * 0.045 : 0;
+      target.pos.set(Math.sin(orbit) * 0.45, 0.3, (isStacked() ? CAMERA_Z_STACKED : CAMERA_Z_SIDE) + (Math.cos(orbit) - 1) * 0.25);
       target.look.set(0, 0, -1);
     }
     target.pos.x += motionState.pointer.x * 0.35;
