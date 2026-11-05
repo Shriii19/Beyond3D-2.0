@@ -66,6 +66,22 @@ export const bodies = [
     fact: 'You are here — moving at about 107,000 km/h around the Sun.',
   },
   {
+    id: 'moon',
+    name: 'MOON',
+    kind: 'NATURAL SATELLITE',
+    au: 0.00257,
+    distance: '384,400 KM',
+    tagline: 'Our closest neighbour.',
+    description: 'Earth’s only natural satellite shapes ocean tides, steadies our planet’s tilt and preserves a record of billions of years of impacts.',
+    stats: [
+      { label: 'DIAMETER', num: 3474, unit: 'KM' },
+      { label: 'ORBIT', num: 27.3, decimals: 1, unit: 'DAYS' },
+      { label: 'DISTANCE', num: 384400, unit: 'KM' },
+      { label: 'GRAVITY', num: 1.62, decimals: 2, unit: 'M/S²' },
+    ],
+    fact: 'The same side always faces Earth because it rotates once per orbit.',
+  },
+  {
     id: 'mars',
     name: 'MARS',
     kind: 'TERRESTRIAL PLANET',
